@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QR Code Generator</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="page-header">
+      <h1>QR Code Generator</h1>
+      <p class="subtitle">Create a short link and dynamic QR code. The QR image always points at the short link, so you can change the destination later without reprinting it.</p>
+    </header>
+
+    <!-- Announcements for screen readers; visually hidden -->
+    <p id="status-region" class="sr-only" role="status" aria-live="polite"></p>
+
+    <section class="card" aria-labelledby="create-heading">
+      <h2 id="create-heading">Create a QR code</h2>
+      <form id="create-form" novalidate>
+        <div class="field">
+          <label for="create-url">Destination URL</label>
+          <input
+            type="url"
+            id="create-url"
+            placeholder="https://example.com"
+            autocomplete="off"
+            aria-describedby="create-url-error"
+            required
+          />
+          <p id="create-url-error" class="field-error"></p>
+        </div>
+
+        <div class="field">
+          <label for="create-expires">Expiration <span class="hint">(optional — leave blank for never expires)</span></label>
+          <input type="datetime-local" id="create-expires" aria-describedby="create-expires-error" />
+          <p id="create-expires-error" class="field-error"></p>
+        </div>
+
+        <button type="submit" id="create-submit">
+          <span class="btn-label">Create QR code</span>
+        </button>
+      </form>
+    </section>
+
+    <section class="card" id="details-card" hidden aria-labelledby="details-heading">
+      <div class="details-head">
+        <h2 id="details-heading">Your QR code</h2>
+        <span id="status-badge" class="badge"></span>
+      </div>
+
+      <div class="details-body">
+        <div class="qr-wrap">
+          <img id="qr-image" alt="QR code linking to the short URL" width="200" height="200" />
+          <div class="qr-image-error" id="qr-image-error" hidden>
+            <p>Couldn't load the QR image.</p>
+            <button type="button" id="btn-retry-image">Retry</button>
+          </div>
+          <a id="btn-download" class="btn-secondary" download>Download PNG</a>
+        </div>
+
+        <dl class="details-list">
+          <dt>Short URL</dt>
+          <dd>
+            <div class="copy-row">
+              <input type="text" id="result-short-url" class="copy-input" readonly aria-label="Short URL" />
+              <button type="button" id="btn-copy">Copy link</button>
+            </div>
+            <p id="copy-feedback" class="field-hint" role="status"></p>
+          </dd>
+
+          <dt>Destination</dt>
+          <dd id="result-original-url"></dd>
+
+          <dt>Expires</dt>
+          <dd id="result-expires"></dd>
+
+          <dt>Token</dt>
+          <dd id="result-token" class="mono"></dd>
+        </dl>
+      </div>
+
+      <div class="actions">
+        <button type="button" id="btn-toggle-edit">Edit destination</button>
+        <button type="button" id="btn-toggle-analytics">View analytics</button>
+        <button type="button" id="btn-open-delete" class="btn-danger">Delete QR code</button>
+      </div>
+
+      <!-- Edit panel -->
+      <div class="subpanel" id="edit-panel" hidden>
+        <h3>Edit destination</h3>
+        <p class="field-hint">Editing the destination does not change the QR image or short URL — the printed code keeps working.</p>
+        <form id="update-form" novalidate>
+          <div class="field">
+            <label for="update-url">New destination URL</label>
+            <input type="url" id="update-url" placeholder="https://new-url.com" aria-describedby="update-url-error" />
+            <p id="update-url-error" class="field-error"></p>
+          </div>
+
+          <div class="field">
+            <label for="update-expires">New expiration</label>
+            <input type="datetime-local" id="update-expires" aria-describedby="update-expires-error" />
+            <p id="update-expires-error" class="field-error"></p>
+          </div>
+
+          <div class="field checkbox-field">
+            <label for="update-clear-expiry">
+              <input type="checkbox" id="update-clear-expiry" disabled />
+              Clear expiration <span class="hint">(not yet supported by the API)</span>
+            </label>
+          </div>
+
+          <div class="actions">
+            <button type="submit" id="update-submit">Save changes</button>
+            <button type="button" id="btn-cancel-edit" class="btn-secondary">Cancel</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Analytics panel -->
+      <div class="subpanel" id="analytics-panel" hidden>
+        <h3>Analytics</h3>
+        <div id="analytics-loading" class="field-hint">Loading…</div>
+        <div id="analytics-content" hidden>
+          <div class="stat-tile">
+            <span class="stat-label">Total scans</span>
+            <span class="stat-value" id="stat-total-scans">0</span>
+          </div>
+
+          <div id="scans-chart" class="bar-chart" role="img" aria-label=""></div>
+          <p id="analytics-empty" class="field-hint" hidden>No scans yet. Share the short link or scan the QR code to see activity here.</p>
+        </div>
+        <p id="analytics-error" class="field-error"></p>
+      </div>
+    </section>
+
+    <section class="card" id="lookup-card" aria-labelledby="lookup-heading">
+      <h2 id="lookup-heading">Manage an existing code</h2>
+      <form id="lookup-form" novalidate>
+        <div class="field">
+          <label for="lookup-token">Token</label>
+          <input type="text" id="lookup-token" placeholder="e.g. sPSq3Fp" />
+        </div>
+        <button type="submit" id="lookup-submit">Load</button>
+      </form>
+      <p id="lookup-error" class="field-error"></p>
+    </section>
+  </main>
+
+  <!-- Delete confirmation -->
+  <dialog id="delete-dialog" aria-labelledby="delete-dialog-title">
+    <form method="dialog">
+      <h2 id="delete-dialog-title">Delete this QR code?</h2>
+      <p>This deactivates the link. Future scans will show an "unavailable link" response (HTTP 410) instead of redirecting. The record isn't permanently erased.</p>
+      <div class="actions">
+        <button type="submit" value="cancel" class="btn-secondary">Cancel</button>
+        <button type="button" id="btn-confirm-delete" class="btn-danger">Delete</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
